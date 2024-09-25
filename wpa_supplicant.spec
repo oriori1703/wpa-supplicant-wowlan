@@ -9,7 +9,7 @@ Summary: WPA/WPA2/IEEE 802.1X Supplicant
 Name: wpa_supplicant
 Epoch: 1
 Version: 2.11
-Release: 2%{?dist}
+Release: 3%{?dist}
 License: BSD-3-Clause
 Source0: http://w1.fi/releases/%{name}-%{version}.tar.gz
 Source1: wpa_supplicant.conf
@@ -56,6 +56,7 @@ BuildRequires: libnl3-devel
 BuildRequires: systemd-units
 BuildRequires: docbook-utils
 BuildRequires: gcc
+BuildRequires: openssl-devel-engine
 Requires(post): systemd-sysv
 Requires(post): systemd
 Requires(preun): systemd
@@ -92,8 +93,8 @@ Graphical User Interface for wpa_supplicant written using QT
 %build
 pushd wpa_supplicant
   cp defconfig .config
-  export CFLAGS="${CFLAGS:-%optflags} -fPIE -DPIE -DOPENSSL_NO_ENGINE"
-  export CXXFLAGS="${CXXFLAGS:-%optflags} -fPIE -DPIE -DOPENSSL_NO_ENGINE"
+  export CFLAGS="${CFLAGS:-%optflags} -fPIE -DPIE"
+  export CXXFLAGS="${CXXFLAGS:-%optflags} -fPIE -DPIE"
   export LDFLAGS="${LDFLAGS:-%optflags} -pie -Wl,-z,now"
   # yes, BINDIR=_sbindir
   export BINDIR="%{_sbindir}"
@@ -203,6 +204,9 @@ chmod -R 0644 wpa_supplicant/examples/*.py
 
 
 %changelog
+* Wed Sep 25 2024 Davide Caratti <dcaratti@redhat.com> - 1:2.11-3
+- re-enable OpenSSL ENGINE API, add build dependency on openssl-devel-engine (#2307226)
+
 * Sun Aug 04 2024 Janne Grunau <janne-fdr@jannau.net> - 1:2.11-2
 - Revert commit breaking authentication on brcmfmac (#2302577)
 
