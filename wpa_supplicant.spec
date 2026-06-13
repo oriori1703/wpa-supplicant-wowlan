@@ -9,7 +9,7 @@ Summary: WPA/WPA2/IEEE 802.1X Supplicant
 Name: wpa_supplicant
 Epoch: 1
 Version: 2.11
-Release: 11%{?dist}
+Release: 12%{?dist}
 License: BSD-3-Clause
 Source0: http://w1.fi/releases/%{name}-%{version}.tar.gz
 Source1: wpa_supplicant.conf
@@ -223,6 +223,9 @@ chmod -R 0644 wpa_supplicant/examples/*.py
 
 
 %changelog
+* Sat Jun 13 2026 Yaakov Selkowitz <yselkowi@redhat.com> - 1:2.11-12
+- Rebuilt for openssl 4.0
+
 * Tue Apr 28 2026 Simo Sorce <simo@redhat.com> - 1:2.11-11
 - Build fixes for OpenSSL 4.0
 
