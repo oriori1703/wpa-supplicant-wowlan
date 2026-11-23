@@ -1,0 +1,119 @@
+From 2633ca01fd4818b823d3190a5f1677a4e18d3e43 Mon Sep 17 00:00:00 2001
+From: Brent <benty.box@proton.me>
+Date: Sat, 5 Sep 2026 19:57:13 -0400
+Subject: [PATCH] nl80211: Pass AKM to GTK rekey offload
+
+NL80211_REKEY_DATA_AKM is part of the GTK rekey data API and cfg80211
+forwards it to drivers. wpa_supplicant currently provides the KEK, KCK,
+and replay counter when configuring GTK rekey offload, but does not
+provide the selected AKM.
+
+This leaves drivers or firmware that require the AKM for rekey offload
+without enough information to configure the offload correctly. This is
+observable with Intel iwlwifi WoWLAN on WPA3-SAE.
+
+Pass the selected AKM from wpa_supplicant through set_rekey_info() and
+include NL80211_REKEY_DATA_AKM in the nl80211 rekey data.
+
+This was validated with an Intel AX200 using WPA3-SAE and PMF. With the
+AP GTK rekey interval reduced to 60 seconds, passing the SAE suite
+selector (00-0f-ac:08) kept the system in deep suspend for 600 seconds
+through multiple GTK rotations while preserving Magic Packet wake.
+
+Signed-off-by: Brent <benty.box@proton.me>
+---
+ src/drivers/driver.h         | 3 ++-
+ src/drivers/driver_nl80211.c | 6 +++++-
+ wpa_supplicant/driver_i.h    | 4 ++--
+ wpa_supplicant/wpas_glue.c   | 3 ++-
+ 4 files changed, 11 insertions(+), 5 deletions(-)
+
+diff --git a/src/drivers/driver.h b/src/drivers/driver.h
+index 398d30f..e957a56 100644
+--- a/src/drivers/driver.h
++++ b/src/drivers/driver.h
+@@ -4992,6 +4992,7 @@ struct wpa_driver_ops {
+ 	 * @kck: Current KCK
+ 	 * @kck_len: KCK length in octets
+ 	 * @replay_ctr: Current EAPOL-Key Replay Counter
++	 * @key_mgmt: Selected key management suite
+ 	 *
+ 	 * This optional function can be used to provide information for the
+ 	 * driver/firmware to process EAPOL-Key frames in Group Key Handshake
+@@ -4999,7 +5000,7 @@ struct wpa_driver_ops {
+ 	 */
+ 	void (*set_rekey_info)(void *priv, const u8 *kek, size_t kek_len,
+ 			       const u8 *kck, size_t kck_len,
+-			       const u8 *replay_ctr);
++			       const u8 *replay_ctr, int key_mgmt);
+ 
+ 	/**
+ 	 * sta_assoc - Station association indication
+diff --git a/src/drivers/driver_nl80211.c b/src/drivers/driver_nl80211.c
+index 3598233..58cc063 100644
+--- a/src/drivers/driver_nl80211.c
++++ b/src/drivers/driver_nl80211.c
+@@ -11440,22 +11440,26 @@ static int wpa_driver_nl80211_get_survey(void *priv, unsigned int freq)
+ 
+ static void nl80211_set_rekey_info(void *priv, const u8 *kek, size_t kek_len,
+ 				   const u8 *kck, size_t kck_len,
+-				   const u8 *replay_ctr)
++				   const u8 *replay_ctr, int key_mgmt)
+ {
+ 	struct i802_bss *bss = priv;
+ 	struct wpa_driver_nl80211_data *drv = bss->drv;
+ 	struct nlattr *replay_nested;
+ 	struct nl_msg *msg;
+ 	int ret;
++	int akm;
+ 
+ 	if (!drv->set_rekey_offload)
+ 		return;
+ 
++	akm = wpa_akm_to_suite(key_mgmt);
++
+ 	wpa_printf(MSG_DEBUG, "nl80211: Set rekey offload");
+ 	if (!(msg = nl80211_bss_msg(bss, 0, NL80211_CMD_SET_REKEY_OFFLOAD)) ||
+ 	    !(replay_nested = nla_nest_start(msg, NL80211_ATTR_REKEY_DATA)) ||
+ 	    nla_put(msg, NL80211_REKEY_DATA_KEK, kek_len, kek) ||
+ 	    (kck_len && nla_put(msg, NL80211_REKEY_DATA_KCK, kck_len, kck)) ||
++	    (akm && nla_put_u32(msg, NL80211_REKEY_DATA_AKM, akm)) ||
+ 	    nla_put(msg, NL80211_REKEY_DATA_REPLAY_CTR, NL80211_REPLAY_CTR_LEN,
+ 		    replay_ctr)) {
+ 		nl80211_nlmsg_clear(msg);
+diff --git a/wpa_supplicant/driver_i.h b/wpa_supplicant/driver_i.h
+index 7d8b806..9122b93 100644
+--- a/wpa_supplicant/driver_i.h
++++ b/wpa_supplicant/driver_i.h
+@@ -635,12 +635,12 @@ static inline int wpa_drv_driver_cmd(struct wpa_supplicant *wpa_s,
+ static inline void wpa_drv_set_rekey_info(struct wpa_supplicant *wpa_s,
+ 					  const u8 *kek, size_t kek_len,
+ 					  const u8 *kck, size_t kck_len,
+-					  const u8 *replay_ctr)
++					  const u8 *replay_ctr, int key_mgmt)
+ {
+ 	if (!wpa_s->driver->set_rekey_info)
+ 		return;
+ 	wpa_s->driver->set_rekey_info(wpa_s->drv_priv, kek, kek_len,
+-				      kck, kck_len, replay_ctr);
++				      kck, kck_len, replay_ctr, key_mgmt);
+ }
+ 
+ static inline int wpa_drv_radio_disable(struct wpa_supplicant *wpa_s,
+diff --git a/wpa_supplicant/wpas_glue.c b/wpa_supplicant/wpas_glue.c
+index 129a53d..feeb67d 100644
+--- a/wpa_supplicant/wpas_glue.c
++++ b/wpa_supplicant/wpas_glue.c
+@@ -1283,7 +1283,8 @@ static void wpa_supplicant_set_rekey_offload(void *ctx,
+ {
+ 	struct wpa_supplicant *wpa_s = ctx;
+ 
+-	wpa_drv_set_rekey_info(wpa_s, kek, kek_len, kck, kck_len, replay_ctr);
++	wpa_drv_set_rekey_info(wpa_s, kek, kek_len, kck, kck_len, replay_ctr,
++			       wpa_s->key_mgmt);
+ }
+ 
+ 
+-- 
+2.56.1
+

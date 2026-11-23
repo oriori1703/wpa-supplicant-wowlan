@@ -9,7 +9,7 @@ Summary: WPA/WPA2/IEEE 802.1X Supplicant
 Name: wpa_supplicant
 Epoch: 1
 Version: 2.12
-Release: 1%{?dist}
+Release: 1%{?dist}.wowlan1
 License: BSD-3-Clause
 Source0: http://w1.fi/releases/%{name}-%{version}.tar.gz
 Source1: wpa_supplicant.conf
@@ -34,6 +34,8 @@ Patch6: wpa_supplicant-defconfig-keep-CONFIG_WEP-enabled.patch
 # FIXME: Explain why are these two here
 Patch7: wpa_supplicant-defconfig-enable-WPA-EAP-SUITE-B-192-ciphers.patch
 Patch8: wpa_supplicant-defconfig-enable-OCV-support.patch
+# https://bugzilla.redhat.com/show_bug.cgi?id=2572081
+Patch9: 0001-nl80211-Pass-AKM-to-GTK-rekey-offload.patch
 
 URL: http://w1.fi/wpa_supplicant/
 
