@@ -9,7 +9,7 @@ Summary: WPA/WPA2/IEEE 802.1X Supplicant
 Name: wpa_supplicant
 Epoch: 1
 Version: 2.11
-Release: 13%{?dist}
+Release: 13%{?dist}.wowlan1
 License: BSD-3-Clause
 Source0: http://w1.fi/releases/%{name}-%{version}.tar.gz
 Source1: wpa_supplicant.conf
@@ -53,6 +53,8 @@ Patch12: wpa_supplicant-OpenSSL-Use-pkcs11-provider-when-OPENSSL_NO_ENGINE-i.pat
 Patch13: wpa_supplicant-OpenSSL-Support-PEM-encoded-chain-from-ca_cert-blob.patch
 # OpenSSL 4.0 build fixes
 Patch14: 0001-Use-OpenSSL-ASN1_STRING-accessors.patch
+# https://bugzilla.redhat.com/show_bug.cgi?id=2572081
+Patch15: 0001-nl80211-Pass-AKM-to-GTK-rekey-offload.patch
 
 URL: http://w1.fi/wpa_supplicant/
 
