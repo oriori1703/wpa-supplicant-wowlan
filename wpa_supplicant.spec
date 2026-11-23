@@ -9,7 +9,7 @@ Summary: WPA/WPA2/IEEE 802.1X Supplicant
 Name: wpa_supplicant
 Epoch: 1
 Version: 2.11
-Release: 9%{?dist}
+Release: 9%{?dist}.wowlan1
 License: BSD-3-Clause
 Source0: http://w1.fi/releases/%{name}-%{version}.tar.gz
 Source1: wpa_supplicant.conf
@@ -49,6 +49,8 @@ Patch10: wpa_supplicant-Revert-Mark-authorization-completed-on-driver-indica.pat
 Patch11: wpa_supplicant-Send-signal-change-as-debug-msg.patch
 # use pkcs11-provider instead of OpenSSL engine
 Patch12: wpa_supplicant-OpenSSL-Use-pkcs11-provider-when-OPENSSL_NO_ENGINE-i.patch
+# https://bugzilla.redhat.com/show_bug.cgi?id=2572081
+Patch13: 0001-nl80211-Pass-AKM-to-GTK-rekey-offload.patch
 
 URL: http://w1.fi/wpa_supplicant/
 
@@ -887,4 +889,3 @@ chmod -R 0644 wpa_supplicant/examples/*.py
 
 * Mon Dec 20 2004 Douglas E. Warner <silfreed@silfreed.net> 0.2.5-1
 - Initial RPM release.
-
